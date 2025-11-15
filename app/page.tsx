@@ -6,6 +6,7 @@ import FileUpload from '@/components/FileUpload'
 import SceneCard from '@/components/SceneCard'
 import Loader from '@/components/Loader'
 import { Scene, Scenario } from '@/types'
+
 import {
   saveScenario,
   getCurrentScenarioId,
@@ -42,7 +43,7 @@ export default function Home() {
     setScenes([])
     setError(null)
     setCurrentScenario(null)
-    // Если выбирается новый файл, очищаем сохраненный ID (но только если файл выбран)
+    // При выборе нового файла — сбрасываем ID
     if (file) {
       setCurrentScenarioId(null)
     }
@@ -70,10 +71,13 @@ export default function Home() {
         throw new Error('Ошибка при парсинге файла')
       }
 
-      const parsedScenes: Scene[] = await response.json()
+      // 🔥 ВАЖНО: Поддерживаем оба варианта ответа
+      const data = await response.json()
+      const parsedScenes: Scene[] = data.scenes || data
+
       setScenes(parsedScenes)
 
-      // Сохраняем в LocalStorage
+      // Сохраняем сценарий
       const newScenario: Scenario = {
         id: Date.now().toString(),
         name: selectedFile.name,
@@ -82,9 +86,8 @@ export default function Home() {
       }
       saveScenario(newScenario)
       setCurrentScenario(newScenario)
-      // Сохраняем ID текущего сценария
       setCurrentScenarioId(newScenario.id)
-      // Обновляем историю в Sidebar
+
       setSidebarRefreshTrigger((prev) => prev + 1)
     } catch (err: any) {
       setError(err.message || 'Произошла ошибка при обработке файла')
@@ -98,7 +101,6 @@ export default function Home() {
     setScenes(scenario.result)
     setSelectedFile(null)
     setError(null)
-    // Сохраняем ID выбранного сценария
     setCurrentScenarioId(scenario.id)
   }
 
@@ -107,8 +109,8 @@ export default function Home() {
     setScenes([])
     setSelectedFile(null)
     setError(null)
-    // Очищаем сохраненный ID текущего сценария
     setCurrentScenarioId(null)
+
     if (selectedFile && document.querySelector('input[type="file"]')) {
       ;(document.querySelector('input[type="file"]') as HTMLInputElement).value = ''
     }
@@ -116,7 +118,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header с бургер-меню */}
+      {/* Header */}
       <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 lg:hidden">
         <div className="flex items-center justify-between p-4">
           <button
@@ -133,12 +135,11 @@ export default function Home() {
             </svg>
           </button>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Wink AI</h1>
-          <div className="w-6"></div> {/* Spacer для центрирования */}
+          <div className="w-6"></div>
         </div>
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -156,13 +157,11 @@ export default function Home() {
           `}
         >
           <div className="max-w-4xl mx-auto">
-            {/* Desktop Header */}
             <div className="hidden lg:block mb-8">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Wink AI</h1>
               <p className="text-gray-600 dark:text-gray-400">Парсинг и анализ сценариев</p>
             </div>
 
-            {/* File Upload Section */}
             {!currentScenario && (
               <div className="mb-8">
                 <FileUpload onFileSelect={handleFileSelect} selectedFile={selectedFile} />
@@ -179,17 +178,14 @@ export default function Home() {
               </div>
             )}
 
-            {/* Error Message */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-500 rounded-lg text-red-600 dark:text-red-400">
                 {error}
               </div>
             )}
 
-            {/* Loading State */}
             {loading && <Loader />}
 
-            {/* Scenes Display */}
             {!loading && scenes.length > 0 && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between mb-4">
@@ -205,13 +201,13 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
                 {scenes.map((scene, index) => (
                   <SceneCard key={scene.id || index} scene={scene} index={index} />
                 ))}
               </div>
             )}
 
-            {/* Empty State */}
             {!loading && scenes.length === 0 && !selectedFile && !currentScenario && (
               <div className="text-center py-12 text-gray-400 dark:text-gray-500">
                 <p>Загрузите файл для начала работы</p>

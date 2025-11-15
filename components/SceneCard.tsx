@@ -1,31 +1,56 @@
 'use client'
 
-import SceneField from './SceneField'
-import { Scene } from '@/types/scenario'
+import React from 'react'
+import { Scene } from '@/types'
 
-export default function SceneCard({ scene }: { scene: Scene }) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black">
-      <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-orange-500 to-red-500" />
+interface SceneCardProps {
+  scene: Scene
+  index: number
+}
 
-      <div className="p-6">
-        <h2 className="text-lg font-semibold text-orange-400 mb-3">{scene.scene_header}</h2>
+export default function SceneCard({ scene, index }: SceneCardProps) {
+  const analysis = scene.analysis || {}
 
-        <SceneField title="Персонажи" items={scene.analysis.Персонажи} />
-        <SceneField title="Массовка" items={scene.analysis.Массовка} />
-        <SceneField title="Реквизит" items={scene.analysis.Реквизит} />
-        <SceneField title="Эффекты" items={scene.analysis.Эффекты} />
+  const renderGroup = (title: string, items: any) => {
+    if (!items) return null
 
-        <div className="flex gap-4 mt-4 text-sm">
-          <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700">
-            Грим: <b>{scene.analysis.Грим}</b>
-          </span>
+    const normalized = Array.isArray(items) ? items : typeof items === 'string' ? [items] : []
 
-          <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700">
-            Костюмы: <b>{scene.analysis.Костюмы}</b>
-          </span>
+    if (normalized.length === 0) return null
+
+    return (
+      <div className="mt-4">
+        <h4 className="text-md font-semibold text-gray-300 mb-2">{title}</h4>
+
+        <div className="flex flex-wrap gap-2">
+          {normalized.map((item: string, i: number) => (
+            <span
+              key={i}
+              className="inline-flex items-center text-xs px-2 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300"
+            >
+              {item}
+            </span>
+          ))}
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="p-6 bg-zinc-800 rounded-xl shadow-md border border-zinc-700">
+      <h3 className="text-xl font-bold text-white mb-2">
+        {scene.scene_header || `Сцена ${index + 1}`}
+      </h3>
+
+      <p className="text-sm text-zinc-300 whitespace-pre-line mb-4">{scene.content || '—'}</p>
+
+      {/* Блоки анализа */}
+      {renderGroup('Персонажи', analysis['Персонажи'])}
+      {renderGroup('Массовка', analysis['Массовка'])}
+      {renderGroup('Реквизит', analysis['Реквизит'])}
+      {renderGroup('Грим', analysis['Грим'])}
+      {renderGroup('Костюмы', analysis['Костюмы'])}
+      {renderGroup('Эффекты', analysis['Эффекты'])}
     </div>
   )
 }
