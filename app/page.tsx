@@ -5,8 +5,9 @@ import Sidebar from '@/components/Sidebar'
 import FileUpload from '@/components/FileUpload'
 import SceneCard from '@/components/SceneCard'
 import Loader from '@/components/Loader'
-import { Scene, Scenario } from '@/types'
+import ScenesFilters from '@/components/ScenesFilters'
 
+import { Scene, Scenario } from '@/types'
 import {
   saveScenario,
   getCurrentScenarioId,
@@ -23,7 +24,50 @@ export default function Home() {
   const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null)
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0)
 
-  // Восстанавливаем сценарий при загрузке страницы
+  // ---------------- ФИЛЬТРЫ ----------------
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([])
+
+  // Все персонажи
+  const allCharacters: string[] = Array.from(
+    new Set(
+      scenes.flatMap((s) => [...(s.analysis?.Персонажи || []), ...(s.analysis?.Массовка || [])])
+    )
+  ).filter(Boolean)
+
+  const toggleCharacter = (name: string) => {
+    setSelectedCharacters((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    )
+  }
+
+  // Фильтрация
+  const filteredScenes = scenes.filter((scene) => {
+    const haystack = [
+      scene.scene_header,
+      ...(scene.analysis?.Персонажи || []),
+      ...(scene.analysis?.Массовка || []),
+      ...(scene.analysis?.Реквизит || []),
+    ]
+      .join(' ')
+      .toLowerCase()
+
+    const searchOk = !search || haystack.includes(search.toLowerCase())
+
+    const chars = new Set([
+      ...(scene.analysis?.Персонажи || []),
+      ...(scene.analysis?.Массовка || []),
+    ])
+
+    const charsOk =
+      selectedCharacters.length === 0 || selectedCharacters.every((ch) => chars.has(ch))
+
+    return searchOk && charsOk
+  })
+
+  // ---------------- ЛОГИКА СЦЕН ----------------
+
   useEffect(() => {
     const savedScenarioId = getCurrentScenarioId()
     if (savedScenarioId) {
@@ -32,7 +76,6 @@ export default function Home() {
         setCurrentScenario(scenario)
         setScenes(scenario.result)
       } else {
-        // Если сценарий не найден, очищаем сохраненный ID
         setCurrentScenarioId(null)
       }
     }
@@ -43,17 +86,11 @@ export default function Home() {
     setScenes([])
     setError(null)
     setCurrentScenario(null)
-    // При выборе нового файла — сбрасываем ID
-    if (file) {
-      setCurrentScenarioId(null)
-    }
+    if (file) setCurrentScenarioId(null)
   }
 
   const handleParse = async () => {
-    if (!selectedFile) {
-      setError('Пожалуйста, выберите файл')
-      return
-    }
+    if (!selectedFile) return
 
     setLoading(true)
     setError(null)
@@ -62,35 +99,28 @@ export default function Home() {
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      const response = await fetch('/api/parse', {
+      const res = await fetch('/api/parse', {
         method: 'POST',
         body: formData,
       })
 
-      if (!response.ok) {
-        throw new Error('Ошибка при парсинге файла')
-      }
-
-      // 🔥 ВАЖНО: Поддерживаем оба варианта ответа
-      const data = await response.json()
+      const data = await res.json()
       const parsedScenes: Scene[] = data.scenes || data
-
       setScenes(parsedScenes)
 
-      // Сохраняем сценарий
       const newScenario: Scenario = {
         id: Date.now().toString(),
         name: selectedFile.name,
         date: new Date().toISOString(),
         result: parsedScenes,
       }
+
       saveScenario(newScenario)
       setCurrentScenario(newScenario)
       setCurrentScenarioId(newScenario.id)
-
-      setSidebarRefreshTrigger((prev) => prev + 1)
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при обработке файла')
+      setSidebarRefreshTrigger((x) => x + 1)
+    } catch (e: any) {
+      setError(e.message)
     } finally {
       setLoading(false)
     }
@@ -110,31 +140,19 @@ export default function Home() {
     setSelectedFile(null)
     setError(null)
     setCurrentScenarioId(null)
-
-    if (selectedFile && document.querySelector('input[type="file"]')) {
-      ;(document.querySelector('input[type="file"]') as HTMLInputElement).value = ''
-    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 lg:hidden">
+      {/* MOBILE HEADER */}
+      <header className="lg:hidden sticky top-0 z-30 bg-white dark:bg-gray-900 border-b dark:border-gray-800">
         <div className="flex items-center justify-between p-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-gray-900 dark:text-white hover:text-orange-500 dark:hover:text-orange-500 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+          <button onClick={() => setSidebarOpen(true)}>
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Wink AI</h1>
+          <h1 className="text-xl font-bold text-white">Wink AI</h1>
           <div className="w-6"></div>
         </div>
       </header>
@@ -148,69 +166,69 @@ export default function Home() {
           refreshTrigger={sidebarRefreshTrigger}
         />
 
-        {/* Main Content */}
-        <main
-          className={`
-            flex-1 transition-all duration-300
-            ${sidebarOpen ? 'lg:ml-0' : 'lg:ml-80'}
-            p-4 lg:p-8
-          `}
-        >
+        {/* MAIN CONTENT */}
+        <main className={`${sidebarOpen ? 'lg:ml-0' : 'lg:ml-80'} flex-1 p-4 lg:p-8`}>
           <div className="max-w-4xl mx-auto">
+            {/* TITLE */}
             <div className="hidden lg:block mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Wink AI</h1>
-              <p className="text-gray-600 dark:text-gray-400">Парсинг и анализ сценариев</p>
+              <h1 className="text-3xl font-bold text-white">Wink AI</h1>
+              <p className="text-gray-400">Парсинг и анализ сценариев</p>
             </div>
 
+            {/* UPLOAD */}
             {!currentScenario && (
               <div className="mb-8">
                 <FileUpload onFileSelect={handleFileSelect} selectedFile={selectedFile} />
-
                 {selectedFile && (
                   <button
                     onClick={handleParse}
                     disabled={loading}
-                    className="mt-4 w-full lg:w-auto px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+                    className="mt-4 bg-orange-500 px-6 py-3 text-white rounded-lg"
                   >
-                    {loading ? 'Обработка...' : 'Парсить сценарий'}
+                    {loading ? 'Обработка…' : 'Парсить сценарий'}
                   </button>
                 )}
               </div>
             )}
 
             {error && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-500 rounded-lg text-red-600 dark:text-red-400">
+              <div className="p-4 mb-4 bg-red-500/20 border border-red-400 text-red-300 rounded-lg">
                 {error}
               </div>
             )}
 
             {loading && <Loader />}
 
+            {/* FILTER BUTTON */}
             {!loading && scenes.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Результаты парсинга
-                  </h2>
-                  {currentScenario && (
-                    <button
-                      onClick={handleNewScenario}
-                      className="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-lg transition-colors text-sm"
-                    >
-                      Новый сценарий
-                    </button>
-                  )}
-                </div>
-
-                {scenes.map((scene, index) => (
-                  <SceneCard key={scene.id || index} scene={scene} index={index} />
-                ))}
-              </div>
+              <button
+                onClick={() => setFiltersOpen((v) => !v)}
+                className="mb-4 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg flex items-center gap-2"
+              >
+                <span>Фильтры</span>
+                <svg width="18" height="18" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeWidth={2} d="M3 6h12M6 10h6M9 14h0" />
+                </svg>
+              </button>
             )}
 
-            {!loading && scenes.length === 0 && !selectedFile && !currentScenario && (
-              <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-                <p>Загрузите файл для начала работы</p>
+            {/* FILTER PANEL */}
+            {filtersOpen && scenes.length > 0 && (
+              <ScenesFilters
+                search={search}
+                onSearchChange={setSearch}
+                characters={allCharacters}
+                selectedCharacters={selectedCharacters}
+                onToggleCharacter={toggleCharacter}
+              />
+            )}
+
+            {/* SCENE CARDS */}
+            {!loading && (
+              <div className="space-y-6">
+                {filteredScenes.map((scene, index) => (
+                  <SceneCard key={index} scene={scene} index={index} />
+                ))}
               </div>
             )}
           </div>
