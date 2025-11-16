@@ -3,54 +3,104 @@
 import React from 'react'
 import { Scene } from '@/types'
 
-interface SceneCardProps {
-  scene: Scene
+interface Props {
+  scene: any
   index: number
 }
 
-export default function SceneCard({ scene, index }: SceneCardProps) {
-  const analysis = scene.analysis || {}
+export default function SceneCard({ scene }: Props) {
+  const a = scene.analysis
 
-  const renderGroup = (title: string, items: any) => {
-    if (!items) return null
+  return (
+    <div
+      className="
+        w-full p-8 mb-8 rounded-2xl
+        bg-zinc-800/60 backdrop-blur-xl
+        border border-zinc-700/70
+        shadow-[0_0_25px_rgba(0,0,0,0.25)]
+        transition duration-300 hover:shadow-[0_0_35px_rgba(0,0,0,0.45)]
+      "
+    >
+      {/* Заголовок сцены */}
+      <h2 className="text-2xl font-bold text-white tracking-wide mb-4">{scene.scene_header}</h2>
 
-    const normalized = Array.isArray(items) ? items : typeof items === 'string' ? [items] : []
+      <div className="h-px w-full bg-zinc-700/60 mb-6" />
 
-    if (normalized.length === 0) return null
+      {/* ДИНАМИЧЕСКИЙ РЕНДЕР ВСЕХ КАТЕГОРИЙ */}
+      {Object.entries(a).map(([key, value]) => {
+        const items = Array.isArray(value) ? value : value ? [value] : []
+        return <Category key={key} title={key} icon={ICONS[key] || '📌'} items={items} />
+      })}
+    </div>
+  )
+}
 
-    return (
-      <div className="mt-4">
-        <h4 className="text-md font-semibold text-gray-300 mb-2">{title}</h4>
+/* -------------------------
+   ИКОНКИ ДЛЯ ВСЕХ КАТЕГОРИЙ
+--------------------------- */
+const ICONS: Record<string, string> = {
+  Персонажи: '👥',
+  Массовка: '🧍‍♀️',
+  Реквизит: '📦',
+  Грим: '🎭',
+  Костюмы: '👗',
+  Эффекты: '✨',
+}
 
-        <div className="flex flex-wrap gap-2">
-          {normalized.map((item: string, i: number) => (
+/* -------------------------
+   КОМПОНЕНТ КАТЕГОРИИ
+--------------------------- */
+interface CatProps {
+  title: string
+  icon: string
+  items: string[]
+}
+
+function Category({ title, icon, items }: CatProps) {
+  const hasItems = items.length > 0
+
+  return (
+    <div className="mb-6">
+      {/* Заголовок блока */}
+      <div className="flex items-center space-x-2 mb-3">
+        <span className="text-lg">{icon}</span>
+        <span className="text-white font-semibold text-lg tracking-wide">{title}</span>
+      </div>
+
+      {/* Если пусто → один серый тег */}
+      {!hasItems ? (
+        <div className="pl-7">
+          <span
+            className="
+              px-3 py-1 rounded-full
+              text-xs font-medium
+              bg-zinc-900/40 text-gray-500
+              border border-zinc-700/40
+            "
+          >
+            ничего не найдено
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2 pl-7">
+          {items.map((item, idx) => (
             <span
-              key={i}
-              className="inline-flex items-center text-xs px-2 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300"
+              key={idx}
+              className="
+                px-3 py-1 rounded-full
+                text-xs font-medium
+                bg-zinc-900/80 text-gray-200
+                border border-zinc-700/70
+                backdrop-blur-sm
+                shadow-sm
+                hover:bg-zinc-700/50 transition
+              "
             >
               {item}
             </span>
           ))}
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="p-6 bg-zinc-800 rounded-xl shadow-md border border-zinc-700">
-      <h3 className="text-xl font-bold text-white mb-2">
-        {scene.scene_header || `Сцена ${index + 1}`}
-      </h3>
-
-      <p className="text-sm text-zinc-300 whitespace-pre-line mb-4">{scene.content || '—'}</p>
-
-      {/* Блоки анализа */}
-      {renderGroup('Персонажи', analysis['Персонажи'])}
-      {renderGroup('Массовка', analysis['Массовка'])}
-      {renderGroup('Реквизит', analysis['Реквизит'])}
-      {renderGroup('Грим', analysis['Грим'])}
-      {renderGroup('Костюмы', analysis['Костюмы'])}
-      {renderGroup('Эффекты', analysis['Эффекты'])}
+      )}
     </div>
   )
 }
